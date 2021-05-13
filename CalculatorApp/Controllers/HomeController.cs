@@ -1,30 +1,74 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+﻿using CalculatorApp.Models;
+using System;
+using System.Configuration;
+using System.IO;
 using System.Web.Mvc;
 
 namespace CalculatorApp.Controllers
 {
     public class HomeController : Controller
     {
-        public ActionResult Index()
+        public ActionResult CalculationForm()
         {
             return View();
         }
 
-        public ActionResult About()
+        [HttpPost]
+        public ActionResult CalculationForm(CalculationDetails calculationDetails)
         {
-            ViewBag.Message = "Your application description page.";
+            if (ModelState.IsValid)
+            {
+                var firstNo = calculationDetails.FirstNumber;
+                var secondNo = calculationDetails.SecondNumber;
+                var multipliedValue = Multiply(firstNo, secondNo);
 
-            return View();
+                if (calculationDetails.Operation == OperationType.CombinedWith)
+                {
+                    calculationDetails.OperationOutput = multipliedValue;
+                }
+                else if(calculationDetails.Operation == OperationType.Either)
+                {
+                    calculationDetails.OperationOutput = Add(firstNo, secondNo) - multipliedValue;
+                }
+
+                LogCalculationToFile(calculationDetails);
+                ViewBag.Output = calculationDetails.OperationOutput;
+            }
+            
+            return View("Index", calculationDetails);
         }
 
-        public ActionResult Contact()
+        public double Multiply(double numberA, double numberB)
         {
-            ViewBag.Message = "Your contact page.";
-
-            return View();
+            return numberA * numberB;
         }
+
+        public double Add(double numberA, double numberB)
+        {
+            return numberA + numberB;
+        }
+
+        public void LogCalculationToFile(CalculationDetails calculationDetails)
+        {
+            string logFilePath = ConfigurationManager.AppSettings["LogFilePath"].ToString();
+            calculationDetails.LogDate = DateTime.Now;
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(logFilePath, append: true))
+                {
+                    foreach (var calculationProperty in calculationDetails.GetType().GetProperties())
+                    {
+                        writer.Write(calculationProperty.GetValue(calculationDetails) + "\t");
+                    }
+                    writer.WriteLine();
+                }
+            }
+            catch(Exception ex)
+            {
+                throw new ArgumentException("Error occured during logging: " + ex.Message);
+            }
+        }
+
     }
 }
